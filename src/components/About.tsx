@@ -1,5 +1,5 @@
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import type { ReactElement } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,7 +52,36 @@ export default function About(): ReactElement {
   const bottomLeftRef = useRef<HTMLSpanElement>(null);
   const bottomRightRef = useRef<HTMLSpanElement>(null);
 
+  const videoSeekRef = useRef<number | null>(null);
+  const targetTimeRef = useRef(0);
+  const lastVideoTimeRef = useRef(0);
+
   const [scrollProgress, setScrollProgress] = useState<number>(0);
+
+  useEffect(() => {
+  const video = videoRef.current;
+  const section = videoPinRef.current;
+
+  if (!video || !section) return;
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        video.preload = "auto";
+        video.load();
+
+        observer.disconnect();
+      }
+    },
+    {
+      rootMargin: "1200px",
+    }
+  );
+
+  observer.observe(section);
+
+  return () => observer.disconnect();
+}, []);
 
   /*
   ============================================================
@@ -72,21 +101,40 @@ export default function About(): ReactElement {
         scrub: 0.1,
 
         onUpdate: (self: ScrollTrigger) => {
-          setScrollProgress(self.progress);
+  setScrollProgress(self.progress);
 
-          /*
-           * Only scrub the video when the desktop video is active.
-           * Mobile uses the portrait image instead.
-           */
-          if (
-            window.innerWidth >= 768 &&
-            videoRef.current &&
-            videoRef.current.duration
-          ) {
-            videoRef.current.currentTime =
-              videoRef.current.duration * self.progress;
-          }
-        },
+  if (
+    window.innerWidth < 768 ||
+    !videoRef.current ||
+    !videoRef.current.duration
+  ) {
+    return;
+  }
+
+  const targetTime =
+    videoRef.current.duration * self.progress;
+
+  targetTimeRef.current = targetTime;
+
+  if (
+    Math.abs(targetTime - lastVideoTimeRef.current) < 0.04
+  ) {
+    return;
+  }
+
+  if (videoSeekRef.current !== null) {
+    return;
+  }
+
+  videoSeekRef.current = requestAnimationFrame(() => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = targetTimeRef.current;
+      lastVideoTimeRef.current = targetTimeRef.current;
+    }
+
+    videoSeekRef.current = null;
+  });
+},
       });
     },
     { scope: curtainRef },
@@ -475,7 +523,7 @@ export default function About(): ReactElement {
           src="/Construction.mp4"
           muted
           playsInline
-          preload="auto"
+          preload="metadata"
           className="absolute inset-0 hidden h-full w-full object-cover md:block"
         />
 
