@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
-      "source": "/modern_house.optimized.glb",
+      "source": "/modern_house.glb",
       "headers": [
         {
           "key": "Cache-Control",
