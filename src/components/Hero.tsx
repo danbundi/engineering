@@ -1,6 +1,4 @@
-
 import { useEffect, useRef } from 'react';
-
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
@@ -9,7 +7,6 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
-
   const wallRef = useRef<HTMLDivElement>(null);
   const wallInnerRef = useRef<HTMLDivElement>(null);
   const scanLineRef = useRef<HTMLDivElement>(null);
@@ -17,33 +14,21 @@ export default function Hero() {
   const apexRef = useRef<HTMLSpanElement>(null);
   const structuralRef = useRef<HTMLSpanElement>(null);
   const engineeringRef = useRef<HTMLSpanElement>(null);
-
   const lineRef = useRef<HTMLDivElement>(null);
-  const coordinateRef = useRef<HTMLDivElement>(null);
-  const bottomTextRef = useRef<HTMLDivElement>(null);
 
   const frameRef = useRef<HTMLDivElement>(null);
-  const crosshairRef = useRef<HTMLDivElement>(null);
-
+  const bottomTextRef = useRef<HTMLDivElement>(null);
   const headerLeftRef = useRef<HTMLDivElement>(null);
   const headerRightRef = useRef<HTMLDivElement>(null);
-  const loadIndicatorRef = useRef<HTMLDivElement>(null);
-
-  const systemLabelRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
-  const measurementRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
       const section = sectionRef.current;
-
       if (!section) return;
 
-      /*
-      ============================================================
-      INITIAL STATES
-      ============================================================
-      */
+      /* ============================================================
+         INITIAL STATES
+      ============================================================ */
 
       gsap.set(wallRef.current, {
         xPercent: -125,
@@ -60,23 +45,18 @@ export default function Hero() {
         opacity: 0,
       });
 
-      /*
-      APEX starts hidden for the load animation.
-      It is NOT faded out by the scroll timeline anymore.
-      */
-
       gsap.set(apexRef.current, {
-        y: 45,
+        y: 35,
         opacity: 0,
       });
 
       gsap.set(structuralRef.current, {
-        y: 45,
+        y: 35,
         opacity: 0,
       });
 
       gsap.set(engineeringRef.current, {
-        y: 15,
+        y: 12,
         opacity: 0,
       });
 
@@ -85,60 +65,29 @@ export default function Hero() {
         transformOrigin: 'left center',
       });
 
-      gsap.set(coordinateRef.current, {
+      gsap.set(frameRef.current, {
         opacity: 0,
-        y: 10,
+        scale: 0.9,
       });
 
       gsap.set(bottomTextRef.current, {
         opacity: 0,
-        y: 15,
-      });
-
-      gsap.set(frameRef.current, {
-        opacity: 0,
-        scale: 0.85,
-      });
-
-      gsap.set(crosshairRef.current, {
-        opacity: 0,
-        scale: 0.5,
+        y: 12,
       });
 
       gsap.set(headerLeftRef.current, {
         opacity: 0,
-        y: -10,
+        y: -8,
       });
 
       gsap.set(headerRightRef.current, {
         opacity: 0,
-        y: -10,
+        y: -8,
       });
 
-      gsap.set(loadIndicatorRef.current, {
-        opacity: 0,
-        y: 10,
-      });
-
-      gsap.set(systemLabelRef.current, {
-        opacity: 0,
-        y: 8,
-      });
-
-      gsap.set(progressRef.current, {
-        opacity: 0,
-      });
-
-      gsap.set(measurementRef.current, {
-        scaleX: 0,
-        transformOrigin: 'left center',
-      });
-
-      /*
-      ============================================================
-      PAGE LOAD INTRO
-      ============================================================
-      */
+      /* ============================================================
+         AUTOMATIC CINEMATIC INTRO
+      ============================================================ */
 
       const intro = gsap.timeline({
         defaults: {
@@ -146,312 +95,210 @@ export default function Hero() {
         },
       });
 
-      intro.to(headerLeftRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-      });
-
-      intro.to(
-        headerRightRef.current,
-        {
+      intro
+        .to(headerLeftRef.current, {
           opacity: 1,
           y: 0,
-          duration: 0.6,
-        },
-        '-=0.45',
-      );
+          duration: 0.35,
+        })
+        .to(
+          headerRightRef.current,
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.35,
+          },
+          '<',
+        )
 
-      /*
-      MAIN BRAND
+        /* WALL */
+        .to(
+          wallRef.current,
+          {
+            xPercent: -15,
+            duration: 1.1,
+            ease: 'power3.inOut',
+          },
+          '+=0.15',
+        )
 
-      This is deliberately independent from ScrollTrigger.
-      Once APEX appears, it remains the visual anchor.
-      */
+        /* WALL DETAILS */
+        .to(
+          wallInnerRef.current,
+          {
+            opacity: 1,
+            duration: 0.5,
+          },
+          '-=0.65',
+        )
 
-      intro.to(
-        apexRef.current,
-        {
-          y: 0,
-          opacity: 1,
-          duration: 1,
-          ease: 'power4.out',
-        },
-        '-=0.25',
-      );
+        /* SCAN */
+        .to(
+          scanLineRef.current,
+          {
+            yPercent: 120,
+            opacity: 1,
+            duration: 0.7,
+            ease: 'none',
+          },
+          '-=0.3',
+        )
 
-      intro.to(
-        lineRef.current,
-        {
-          scaleX: 1,
-          duration: 0.7,
-          ease: 'power3.out',
-        },
-        '-=0.5',
-      );
+        /* APEX */
+        .to(
+          apexRef.current,
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.65,
+            ease: 'power4.out',
+          },
+          '-=0.35',
+        )
 
-      intro.to(
-        systemLabelRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.45,
-        },
-        '-=0.3',
-      );
+        /* STRUCTURAL */
+        .to(
+          structuralRef.current,
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.55,
+            ease: 'power4.out',
+          },
+          '-=0.35',
+        )
 
-      intro.to(
-        loadIndicatorRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-        },
-        '-=0.2',
-      );
+        /* LINE */
+        .to(
+          lineRef.current,
+          {
+            scaleX: 1,
+            duration: 0.45,
+          },
+          '-=0.25',
+        )
 
-      intro.to(
-        progressRef.current,
-        {
-          opacity: 1,
-          duration: 0.4,
-        },
-        '-=0.25',
-      );
+        /* ENGINEERING */
+        .to(
+          engineeringRef.current,
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.4,
+          },
+          '-=0.25',
+        )
 
-      /*
-      ============================================================
-      SCROLL TIMELINE
-      ============================================================
-      */
+        /* FRAME */
+        .to(
+          frameRef.current,
+          {
+            opacity: 1,
+            scale: 1,
+            duration: 0.7,
+            ease: 'power3.out',
+          },
+          '-=0.2',
+        )
 
-      const tl = gsap.timeline({
+        /* BOTTOM */
+        .to(
+          bottomTextRef.current,
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.4,
+          },
+          '-=0.3',
+        );
+
+      /* ============================================================
+         SHORT SCROLL TRANSITION
+      ============================================================ */
+
+      const scrollTl = gsap.timeline({
         scrollTrigger: {
           trigger: section,
           start: 'top top',
-          end: '+=450%',
+          end: '+=140%',
           pin: true,
-          scrub: 0.8,
+          scrub: 0.7,
           invalidateOnRefresh: true,
         },
       });
 
       /*
-      ------------------------------------------------------------
-      WALL ENTERS
-      ------------------------------------------------------------
-      */
+       * The intro has already built the scene.
+       *
+       * Scroll now simply moves the completed composition
+       * out of the way and hands control to the next section.
+       */
 
-      tl.to(wallRef.current, {
-        xPercent: -15,
-        rotation: -32,
-        duration: 1.25,
-        ease: 'power2.inOut',
-      });
-
-      /*
-      ------------------------------------------------------------
-      WALL DETAILS
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        wallInnerRef.current,
-        {
-          opacity: 1,
-          duration: 0.45,
-        },
-        '-=0.65',
-      );
-
-      /*
-      ------------------------------------------------------------
-      SCAN LINE
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        scanLineRef.current,
-        {
-          yPercent: 120,
-          opacity: 1,
-          duration: 0.9,
-          ease: 'none',
-        },
-        '-=0.25',
-      );
-
-      /*
-      ------------------------------------------------------------
-      STRUCTURAL
-      ------------------------------------------------------------
-
-      APEX is already visible.
-      STRUCTURAL now joins it.
-      */
-
-      tl.to(
-        structuralRef.current,
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.55,
-          ease: 'power3.out',
-        },
-        '-=0.35',
-      );
-
-      /*
-      ------------------------------------------------------------
-      ENGINEERING LABEL
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        engineeringRef.current,
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.4,
-        },
-        '-=0.3',
-      );
-
-      /*
-      ------------------------------------------------------------
-      CROSSHAIR
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        crosshairRef.current,
-        {
-          opacity: 1,
-          scale: 1,
-          duration: 0.4,
-          ease: 'back.out(1.5)',
-        },
-        '-=0.15',
-      );
-
-      /*
-      ------------------------------------------------------------
-      TECHNICAL DATA
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        coordinateRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.35,
-        },
-        '-=0.15',
-      );
-
-      /*
-      ------------------------------------------------------------
-      MEASUREMENT
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        measurementRef.current,
-        {
-          scaleX: 1,
-          duration: 0.65,
-          ease: 'power2.out',
-        },
-        '-=0.2',
-      );
-
-      /*
-      ------------------------------------------------------------
-      WALL PASSES THROUGH
-      ------------------------------------------------------------
-      */
-
-      tl.to(wallRef.current, {
-        xPercent: 65,
-        rotation: -32,
-        duration: 1.45,
-        ease: 'power2.inOut',
-      });
-
-      /*
-      ------------------------------------------------------------
-      STRUCTURAL FRAME
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        frameRef.current,
-        {
-          opacity: 1,
-          scale: 1,
-          duration: 0.65,
-          ease: 'power3.out',
-        },
-        '-=0.65',
-      );
-
-      /*
-      ------------------------------------------------------------
-      FINAL STATEMENT
-      ------------------------------------------------------------
-      */
-
-      tl.to(
-        bottomTextRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-        },
-        '-=0.3',
-      );
-
-      /*
-      IMPORTANT:
-
-      We intentionally DO NOT fade APEX out here.
-
-      That was the main reason the brand could disappear
-      and become unreliable when scrolling back upward.
-
-      APEX stays present as the identity anchor.
-      */
-
-      tl.to(
-        [
-          structuralRef.current,
-          engineeringRef.current,
-          lineRef.current,
-          coordinateRef.current,
-          bottomTextRef.current,
+      scrollTl
+        .to(
+          wallRef.current,
+          {
+            xPercent: 55,
+            rotation: -32,
+            duration: 0.55,
+            ease: 'power2.inOut',
+          },
+          0,
+        )
+        .to(
           frameRef.current,
-          crosshairRef.current,
-          systemLabelRef.current,
-          loadIndicatorRef.current,
-          progressRef.current,
-        ],
-        {
-          opacity: 0,
-          duration: 0.5,
-        },
-        '+=0.45',
-      );
+          {
+            x: 80,
+            opacity: 0,
+            duration: 0.45,
+            ease: 'power2.inOut',
+          },
+          0.05,
+        )
+        .to(
+          engineeringRef.current,
+          {
+            y: -20,
+            opacity: 0,
+            duration: 0.35,
+          },
+          0.15,
+        )
+        .to(
+          structuralRef.current,
+          {
+            y: -35,
+            opacity: 0,
+            duration: 0.4,
+          },
+          0.2,
+        )
+        .to(
+          lineRef.current,
+          {
+            scaleX: 0,
+            duration: 0.3,
+          },
+          0.25,
+        )
+        .to(
+          bottomTextRef.current,
+          {
+            y: 20,
+            opacity: 0,
+            duration: 0.3,
+          },
+          0.3,
+        );
     },
-    { scope: sectionRef },
+    {
+      scope: sectionRef,
+    },
   );
 
-  /*
-  ================================================================
-  MOUSE PARALLAX
-  Desktop only
-  ================================================================
-  */
+  /* ================================================================
+     SUBTLE DESKTOP PARALLAX
+  ================================================================= */
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -470,9 +317,9 @@ export default function Hero() {
       const y = (event.clientY / window.innerHeight - 0.5) * 2;
 
       gsap.to(wall, {
-        x: x * 8,
-        y: y * 4,
-        duration: 1.2,
+        x: x * 6,
+        y: y * 3,
+        duration: 1.4,
         ease: 'power3.out',
         overwrite: 'auto',
       });
@@ -490,20 +337,21 @@ export default function Hero() {
       ref={sectionRef}
       className="relative h-screen min-h-[620px] w-full overflow-hidden bg-[#F5F3EE] text-[#18324A]"
     >
-      {/* =====================================================
+      {/* ============================================================
           ARCHITECTURAL GRID
-      ====================================================== */}
+      ============================================================ */}
 
       <div className="pointer-events-none absolute inset-0 opacity-30 md:opacity-40">
         <div className="absolute left-[6%] top-0 h-full w-px bg-[#18324A]/10 md:left-[8%]" />
         <div className="absolute left-[94%] top-0 h-full w-px bg-[#18324A]/10 md:left-[92%]" />
+
         <div className="absolute left-0 top-[20%] h-px w-full bg-[#18324A]/10 md:top-[18%]" />
         <div className="absolute left-0 top-[80%] h-px w-full bg-[#18324A]/10 md:top-[82%]" />
       </div>
 
-      {/* =====================================================
+      {/* ============================================================
           HEADER
-      ====================================================== */}
+      ============================================================ */}
 
       <div
         ref={headerLeftRef}
@@ -527,26 +375,9 @@ export default function Hero() {
         EST. 2026
       </div>
 
-      {/* =====================================================
-          SMALL SYSTEM LABEL
-      ====================================================== */}
-
-      <div
-        ref={systemLabelRef}
-        className="absolute left-[6%] top-[28%] z-30 sm:left-[8%] sm:top-[30%]"
-      >
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#D89A24]" />
-
-          <span className="font-mono text-[6px] tracking-[0.2em] text-[#5F7890] sm:text-[7px]">
-            STRUCTURAL SYSTEM / 01
-          </span>
-        </div>
-      </div>
-
-      {/* =====================================================
+      {/* ============================================================
           CONCRETE WALL
-      ====================================================== */}
+      ============================================================ */}
 
       <div
         ref={wallRef}
@@ -574,14 +405,6 @@ export default function Hero() {
           <div className="absolute right-[10%] top-[30%] w-16 translate-y-2 text-right font-mono text-[6px] tracking-[0.12em] text-[#5F7890] md:right-[12%] md:w-24 md:translate-y-3 md:text-[7px] md:tracking-[0.15em]">
             LOAD PATH
           </div>
-
-          <div className="absolute right-[7%] top-[50%] flex items-center gap-1.5 md:right-[8%] md:gap-2">
-            <div className="h-px w-5 bg-[#18324A]/20 md:w-8" />
-
-            <span className="font-mono text-[6px] text-[#5F7890] md:text-[7px]">
-              2400
-            </span>
-          </div>
         </div>
 
         <div
@@ -590,13 +413,12 @@ export default function Hero() {
         />
       </div>
 
-      {/* =====================================================
+      {/* ============================================================
           MAIN TYPOGRAPHY
-      ====================================================== */}
+      ============================================================ */}
 
       <div className="absolute inset-0 z-20 flex items-center px-[6%] sm:px-[8%]">
         <div className="relative w-full max-w-5xl">
-
           <div className="mb-3 overflow-hidden sm:mb-4 md:mb-5">
             <span
               ref={apexRef}
@@ -631,28 +453,9 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* =====================================================
-          MEASUREMENT DETAIL
-      ====================================================== */}
-
-      <div className="absolute right-[7%] top-[18%] z-30 hidden items-center gap-2 sm:flex md:right-[10%]">
-        <span className="font-mono text-[6px] tracking-[0.16em] text-[#5F7890] md:text-[7px]">
-          2400 MM
-        </span>
-
-        <div
-          ref={measurementRef}
-          className="h-px w-10 bg-[#18324A]/30 md:w-16"
-        />
-
-        <span className="font-mono text-[6px] text-[#5F7890] md:text-[7px]">
-          ┤
-        </span>
-      </div>
-
-      {/* =====================================================
+      {/* ============================================================
           STRUCTURAL FRAME
-      ====================================================== */}
+      ============================================================ */}
 
       <div
         ref={frameRef}
@@ -662,45 +465,14 @@ export default function Hero() {
         <div className="absolute bottom-0 left-0 h-px w-full bg-[#18324A]/20" />
         <div className="absolute left-0 top-0 h-full w-px bg-[#18324A]/20" />
         <div className="absolute right-0 top-0 h-full w-px bg-[#18324A]/20" />
+
         <div className="absolute left-[50%] top-0 h-full w-px bg-[#D89A24]/30" />
         <div className="absolute left-0 top-[50%] h-px w-full bg-[#D89A24]/30" />
       </div>
 
-      {/* =====================================================
-          CROSSHAIR
-      ====================================================== */}
-
-      <div
-        ref={crosshairRef}
-        className="pointer-events-none absolute right-[24%] top-[23%] z-30 h-6 w-6 sm:right-[27%] sm:top-[24%] sm:h-7 sm:w-7 md:right-[32%] md:top-[26%] md:h-8 md:w-8"
-      >
-        <div className="absolute left-1/2 top-0 h-full w-px bg-[#D89A24]/60" />
-        <div className="absolute left-0 top-1/2 h-px w-full bg-[#D89A24]/60" />
-        <div className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D89A24] md:h-1.5 md:w-1.5" />
-      </div>
-
-      {/* =====================================================
-          TECHNICAL DATA
-      ====================================================== */}
-
-      <div
-        ref={coordinateRef}
-        className="absolute bottom-[19%] right-[6%] z-20 sm:right-[8%] md:bottom-[18%]"
-      >
-        <div className="flex items-start gap-3 sm:gap-4 md:gap-5">
-          <div className="h-9 w-px bg-[#18324A]/15 sm:h-10 md:h-12" />
-
-          <div className="font-mono text-[6px] leading-4 tracking-[0.1em] text-[#5F7890] sm:text-[7px] sm:leading-5 md:text-[8px] md:tracking-[0.14em]">
-            <div>LAT 01°17′S</div>
-            <div>LON 36°49′E</div>
-            <div>STRUCT / 001</div>
-          </div>
-        </div>
-      </div>
-
-      {/* =====================================================
+      {/* ============================================================
           BOTTOM STATEMENT
-      ====================================================== */}
+      ============================================================ */}
 
       <div
         ref={bottomTextRef}
@@ -724,45 +496,9 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* =====================================================
-          LOAD INDICATOR
-      ====================================================== */}
-
-      <div
-        ref={loadIndicatorRef}
-        className="absolute bottom-[13%] left-[6%] z-30 flex items-center gap-3 sm:bottom-[14%] sm:left-[8%]"
-      >
-        <div className="relative h-5 w-px overflow-hidden bg-[#18324A]/15">
-          <div className="absolute bottom-0 left-0 h-1/2 w-full bg-[#D89A24]" />
-        </div>
-
-        <span className="font-mono text-[6px] uppercase tracking-[0.18em] text-[#5F7890] sm:text-[7px] sm:tracking-[0.2em]">
-          Scroll to unfold
-        </span>
-      </div>
-
-      {/* =====================================================
-          PROGRESS DETAIL
-      ====================================================== */}
-
-      <div
-        ref={progressRef}
-        className="absolute bottom-6 right-[18%] z-30 hidden items-center gap-2 sm:flex md:right-[16%]"
-      >
-        <span className="font-mono text-[6px] tracking-[0.15em] text-[#18324A]/40">
-          01
-        </span>
-
-        <div className="h-px w-8 bg-[#18324A]/15 md:w-12" />
-
-        <span className="font-mono text-[6px] tracking-[0.15em] text-[#18324A]/40">
-          04
-        </span>
-      </div>
-
-      {/* =====================================================
+      {/* ============================================================
           CORNER MARK
-      ====================================================== */}
+      ============================================================ */}
 
       <div className="absolute bottom-6 right-[6%] z-30 sm:bottom-7 sm:right-[8%] md:bottom-8">
         <div className="relative h-4 w-4 sm:h-5 sm:w-5">
@@ -773,4 +509,3 @@ export default function Hero() {
     </section>
   );
 }
-

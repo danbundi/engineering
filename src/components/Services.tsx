@@ -42,40 +42,40 @@ type BuildingPart = {
 
 /* =========================================================
    MODEL CLASSIFICATION
-
-   These names are based around the actual modern_house.glb
-   structure rather than relying entirely on generic keywords.
 ========================================================= */
 
 function classifyMesh(name: string): PartCategory {
   const normalized = name.toLowerCase();
 
-  /* ROOF */
+  // Roof first because roof elements should never be
+  // accidentally classified as generic structure.
   if (normalized.includes("roof")) {
     return "roof";
   }
 
-  /* FOUNDATION / BASE */
+  // Foundation / base
   if (
     normalized === "floor_standardsurface1_0" ||
     normalized === "bot_floor_standardsurface1_0" ||
     normalized.includes("foundation") ||
     normalized.includes("footing") ||
-    normalized.includes("ground")
+    normalized.includes("ground") ||
+    normalized.includes("base")
   ) {
     return "foundation";
   }
 
-  /* OPENINGS */
+  // Doors / windows / glazing
   if (
     normalized.includes("window") ||
     normalized.includes("door") ||
-    normalized.includes("glass")
+    normalized.includes("glass") ||
+    normalized.includes("gar_door")
   ) {
     return "openings";
   }
 
-  /* PRIMARY STRUCTURE */
+  // Primary structure
   if (
     normalized.includes("support") ||
     normalized.includes("column") ||
@@ -87,7 +87,7 @@ function classifyMesh(name: string): PartCategory {
     return "structure";
   }
 
-  /* ENVELOPE / WALL ELEMENTS */
+  // Envelope
   if (
     normalized.includes("wall") ||
     normalized.includes("partition") ||
@@ -101,10 +101,11 @@ function classifyMesh(name: string): PartCategory {
     return "walls";
   }
 
-  /* FLOORS / SLABS */
+  // Floors / slabs
   if (
     normalized.includes("med_floor") ||
     normalized.includes("top_loor") ||
+    normalized.includes("floor") ||
     normalized.includes("plat") ||
     normalized.includes("slab")
   ) {
@@ -116,9 +117,6 @@ function classifyMesh(name: string): PartCategory {
 
 /* =========================================================
    MODEL
-
-   Normalizes the actual GLB so we don't have to guess its
-   original tiny dimensions.
 ========================================================= */
 
 function BuildingModel({
@@ -129,6 +127,7 @@ function BuildingModel({
   modelOffsetX: number;
 }) {
   const { scene } = useGLTF("/modern_house.glb");
+  const { size } = useThree();
 
   const normalized = useMemo(() => {
     const clone = scene.clone(true);
@@ -149,11 +148,15 @@ function BuildingModel({
       originalSize.z
     );
 
+    /*
+     * IMPORTANT:
+     * Keep the original normalization.
+     *
+     * The model is normalized to approximately 10 world units.
+     * Responsive scaling happens AFTER this.
+     */
     const scale = maxDimension > 0 ? 10 / maxDimension : 1;
 
-    /*
-     * Scale and center the actual model.
-     */
     clone.scale.setScalar(scale);
 
     clone.position.set(
@@ -169,10 +172,6 @@ function BuildingModel({
     clone.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
 
-      /*
-       * Clone materials so we can animate individual
-       * categories without modifying shared GLTF materials.
-       */
       const sourceMaterials = Array.isArray(child.material)
         ? child.material
         : [child.material];
@@ -194,7 +193,10 @@ function BuildingModel({
       child.receiveShadow = true;
 
       const worldBox = new THREE.Box3().setFromObject(child);
-      const center = worldBox.getCenter(new THREE.Vector3());
+
+      const center = worldBox.getCenter(
+        new THREE.Vector3()
+      );
 
       parts.push({
         mesh: child,
@@ -216,12 +218,37 @@ function BuildingModel({
     };
   }, [scene]);
 
+  /*
+   * Responsive model size.
+   *
+   * This is intentionally applied AFTER the original
+   * normalization. We are NOT replacing the model's
+   * original scale calculation.
+   */
+  const responsiveScale =
+    size.width < 480
+      ? 0.72
+      : size.width < 640
+        ? 0.78
+        : size.width < 768
+          ? 0.84
+          : size.width < 1100
+            ? 0.92
+            : 1;
+
+  /*
+   * Give the parent GSAP system the exact parts that
+   * are actually being rendered.
+   */
   useEffect(() => {
     onReady(normalized.parts, normalized.scale);
   }, [normalized, onReady]);
 
   return (
-    <group position={[modelOffsetX, 0, 0]}>
+    <group
+      position={[modelOffsetX, 0, 0]}
+      scale={responsiveScale}
+    >
       <primitive object={normalized.scene} />
     </group>
   );
@@ -229,9 +256,6 @@ function BuildingModel({
 
 /* =========================================================
    CAMERA RIG
-
-   GSAP controls camera.position and cameraTarget.
-   useFrame simply keeps the camera pointed at the target.
 ========================================================= */
 
 function CameraRig({
@@ -241,12 +265,37 @@ function CameraRig({
   cameraRef: React.MutableRefObject<THREE.PerspectiveCamera | null>;
   targetRef: React.MutableRefObject<THREE.Vector3>;
 }) {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
 
-  cameraRef.current = camera as THREE.PerspectiveCamera;
+  useEffect(() => {
+    const perspectiveCamera =
+      camera as THREE.PerspectiveCamera;
+
+    perspectiveCamera.fov =
+      size.width < 640
+        ? 48
+        : size.width < 768
+          ? 46
+          : size.width < 1100
+            ? 42
+            : 38;
+
+    perspectiveCamera.updateProjectionMatrix();
+  }, [camera, size.width]);
 
   useFrame(() => {
-    camera.lookAt(targetRef.current);
+    const perspectiveCamera =
+      camera as THREE.PerspectiveCamera;
+
+    cameraRef.current = perspectiveCamera;
+
+    /*
+     * IMPORTANT FIX:
+     *
+     * GSAP animates targetRef.current.
+     * The camera must actually look at that target.
+     */
+    perspectiveCamera.lookAt(targetRef.current);
   });
 
   return null;
@@ -258,8 +307,8 @@ function CameraRig({
 
 function ServiceIntro() {
   return (
-    <div className="absolute left-6 top-1/2 z-20 -translate-y-1/2 md:left-12 lg:left-20">
-      <div className="max-w-[520px]">
+    <div className="pointer-events-none absolute inset-0 z-20 flex items-center">
+      <div className="ml-6 max-w-[520px] md:ml-12 lg:ml-20">
         <div className="mb-6 flex items-center gap-4">
           <span className="h-px w-10 bg-[#D89A24]" />
 
@@ -296,115 +345,139 @@ interface ServiceCopyProps {
   title: string;
   description: string;
   tags: string[];
-  side: "left" | "right";
+  side: "left" | "right" | "rightUp";
 }
 
-const ServiceCopy = forwardRef<HTMLDivElement, ServiceCopyProps>(
-  function ServiceCopy(
-    {
-      number,
-      eyebrow,
-      title,
-      description,
-      tags,
-      side,
-    },
-    ref
-  ) {
-    return (
-      <div
-        ref={ref}
-        className={`service-copy pointer-events-none absolute top-1/2 z-30 w-[min(390px,82vw)] -translate-y-1/2 opacity-0 ${
-          side === "left"
-            ? "left-6 md:left-12 lg:left-20"
-            : "right-6 md:right-12 lg:right-20"
-        }`}
-      >
-        <div className="border-t border-[#18324A]/20 pt-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="font-mono text-[9px] tracking-[0.25em] text-[#D89A24]">
-                {number}
-              </span>
+const ServiceCopy = forwardRef<
+  HTMLDivElement,
+  ServiceCopyProps
+>(function ServiceCopy(
+  {
+    number,
+    eyebrow,
+    title,
+    description,
+    tags,
+    side,
+  },
+  ref
+) {
+  return (
+    <div
+      ref={ref}
+      className={`pointer-events-none absolute top-[56%] z-30 w-[min(420px,88vw)] -translate-y-1/2 opacity-0 md:top-1/2 ${
+        side === "left"
+          ? "left-4 sm:left-6 md:left-12 lg:left-20"
+          : "right-4 sm:right-6 md:right-12 lg:right-20"
+      }`}
+    >
+      <div className="relative overflow-hidden border border-[#18324A]/10 border-t-[#D89A24]/60 bg-[#F5F3EE]/75 p-5 pt-4 shadow-[0_24px_70px_rgba(24,50,74,0.08)] backdrop-blur-[8px] sm:p-6 sm:pt-4">
+        {/* Technical corner */}
+        <div className="absolute right-0 top-0 h-px w-20 bg-[#D89A24]/70" />
+        <div className="absolute right-0 top-0 h-5 w-px bg-[#D89A24]/30" />
 
-              <p className="mt-2 font-mono text-[9px] tracking-[0.22em] text-[#5F7890]">
-                {eyebrow}
-              </p>
-            </div>
+        {/* Small left technical marker */}
+        <div className="absolute bottom-0 left-0 h-8 w-px bg-[#18324A]/10" />
 
-            <span className="font-mono text-[8px] tracking-wider text-[#A6B4BE]">
-              APEX / SYSTEM
+        <div className="flex items-start justify-between">
+          <div>
+            <span className="font-mono text-[9px] tracking-[0.25em] text-[#D89A24]">
+              {number}
             </span>
+
+            <p className="mt-2 font-mono text-[9px] tracking-[0.22em] text-[#5F7890]">
+              {eyebrow}
+            </p>
           </div>
 
-          <h2 className="mt-5 text-[clamp(2.4rem,5vw,5rem)] font-semibold leading-[0.88] tracking-[-0.055em] text-[#18324A]">
-            {title}
-          </h2>
+          <span className="font-mono text-[8px] tracking-wider text-[#A6B4BE]">
+            APEX / SYSTEM
+          </span>
+        </div>
 
-          <p className="mt-6 max-w-[360px] text-sm leading-7 text-[#5F7890]">
-            {description}
-          </p>
+        <h2 className="mt-5 text-[clamp(2.2rem,7vw,5rem)] font-semibold leading-[0.88] tracking-[-0.055em] text-[#18324A]">
+          {title}
+        </h2>
 
-          <div className="mt-7 flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="border border-[#18324A]/15 px-3 py-2 font-mono text-[8px] tracking-[0.15em] text-[#18324A]"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
+        <p className="mt-6 max-w-[360px] text-[13px] leading-6 text-[#5F7890] sm:text-sm sm:leading-7">
+          {description}
+        </p>
+
+        <div className="mt-7 flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className={`border border-[#18324A]/15 px-3 py-2 font-mono text-[8px] tracking-[0.15em] ${
+                side === "rightUp"
+                  ? "text-[#5F7890]"
+                  : "text-[#18324A]"
+              }`}
+            >
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
-    );
-  }
-);
+    </div>
+  );
+});
 
 /* =========================================================
    INTERIOR LABEL
 ========================================================= */
 
-const InteriorLabel = forwardRef<HTMLDivElement>(
-  function InteriorLabel(_, ref) {
-    return (
-      <div
-        ref={ref}
-        className="pointer-events-none absolute right-6 top-1/2 z-30 w-[min(340px,80vw)] -translate-y-1/2 opacity-0 md:right-12 lg:right-20"
-      >
-        <div className="border-t border-[#18324A]/20 pt-4">
-          <span className="font-mono text-[9px] tracking-[0.25em] text-[#D89A24]">
-            04.5
-          </span>
+const InteriorLabel = forwardRef<HTMLDivElement>(function InteriorLabel(_, ref) {
+  return (
+    <div
+      ref={ref}
+      className="pointer-events-none absolute top-[56%] right-4 z-30 w-[min(420px,88vw)] -translate-y-1/2 p-0 opacity-0 sm:right-6 md:top-1/2 md:right-12 lg:right-20"
+    >
+      <div className="relative overflow-hidden border border-[#18324A]/10 border-t-[#D89A24]/60 bg-[#F5F3EE]/75 p-5 pt-4 shadow-[0_24px_70px_rgba(24,50,74,0.08)] backdrop-blur-[8px] sm:p-6 sm:pt-4">
+        {/* Technical corner */}
+        <div className="absolute right-0 top-0 h-px w-20 bg-[#D89A24]/70" />
+        <div className="absolute right-0 top-0 h-5 w-px bg-[#D89A24]/30" />
 
-          <p className="mt-2 font-mono text-[9px] tracking-[0.22em] text-[#5F7890]">
-            INTERNAL LOAD PATH
-          </p>
+        {/* Small left technical marker */}
+        <div className="absolute bottom-0 left-0 h-8 w-px bg-[#18324A]/10" />
 
-          <h2 className="mt-5 text-[clamp(2.4rem,5vw,4.5rem)] font-semibold leading-[0.88] tracking-[-0.055em] text-[#18324A]">
-            INSIDE
-            <br />
-            THE SYSTEM.
-          </h2>
-
-          <p className="mt-6 max-w-[320px] text-sm leading-7 text-[#5F7890]">
-            Remove the envelope and the logic becomes visible.
-            Slabs, supports and load paths work together as one
-            continuous structural system.
-          </p>
-
-          <div className="mt-7 flex items-center gap-3">
-            <span className="h-px w-12 bg-[#D89A24]" />
-
-            <span className="font-mono text-[8px] tracking-[0.18em] text-[#18324A]">
-              LOAD PATH / ACTIVE
+        <div className="flex items-start justify-between">
+          <div>
+            <span className="font-mono text-[9px] tracking-[0.25em] text-[#D89A24]">
+              04.5
             </span>
+
+            <p className="mt-2 font-mono text-[9px] tracking-[0.22em] text-[#5F7890]">
+              INTERNAL LOAD PATH
+            </p>
           </div>
+
+          <span className="font-mono text-[8px] tracking-wider text-[#A6B4BE]">
+            APEX / SYSTEM
+          </span>
+        </div>
+
+        <h2 className="mt-5 text-[clamp(2.2rem,7vw,5rem)] font-semibold leading-[0.88] tracking-[-0.055em] text-[#18324A]">
+          INSIDE
+          <br />
+          THE SYSTEM.
+        </h2>
+
+        <p className="mt-6 max-w-[360px] text-[13px] leading-6 text-[#5F7890] sm:text-sm sm:leading-7">
+          Remove the envelope and the logic becomes visible. Slabs, supports
+          and load paths work together as one continuous structural system.
+        </p>
+
+        <div className="mt-7 flex items-center gap-3">
+          <span className="h-px w-12 bg-[#D89A24]" />
+
+          <span className="font-mono text-[8px] tracking-[0.18em] text-[#18324A]">
+            LOAD PATH / ACTIVE
+          </span>
         </div>
       </div>
-    );
-  }
-);
+    </div>
+  );
+});
 
 /* =========================================================
    FINAL STATEMENT
@@ -415,7 +488,7 @@ const FinalStatement = forwardRef<HTMLDivElement>(
     return (
       <div
         ref={ref}
-        className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center text-center opacity-0"
+        className="pointer-events-none absolute inset-0 top-[-300px] z-30 flex items-center justify-center px-6 text-center opacity-0"
       >
         <div>
           <p className="font-mono text-[9px] tracking-[0.35em] text-[#D89A24]">
@@ -462,12 +535,12 @@ function TechnicalOverlay({
       />
 
       {/* TOP RIGHT */}
-      <div className="absolute right-6 top-6 text-right md:right-12">
-        <p className="font-mono text-[8px] tracking-[0.25em] text-[#5F7890]">
+      <div className="absolute right-5 top-5 text-right sm:right-6 sm:top-6 md:right-12">
+        <p className="font-mono text-[7px] tracking-[0.25em] text-[#5F7890] sm:text-[8px]">
           STRUCTURAL DECONSTRUCTION
         </p>
 
-        <p className="mt-2 font-mono text-[9px] tracking-wider text-[#18324A]">
+        <p className="mt-2 font-mono text-[8px] tracking-wider text-[#18324A] sm:text-[9px]">
           SYSTEM / 01
         </p>
       </div>
@@ -481,7 +554,7 @@ function TechnicalOverlay({
         <span className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D89A24]" />
       </div>
 
-      {/* TOP LEFT COORDINATE */}
+      {/* TOP LEFT COORDINATES */}
       <div className="absolute left-6 top-6 hidden md:left-12 md:block">
         <p className="font-mono text-[8px] tracking-wider text-[#A6B4BE]">
           X 024.018
@@ -527,6 +600,17 @@ function TechnicalOverlay({
           01 — 05
         </span>
       </div>
+
+      {/* MOBILE SCROLL LABEL */}
+      <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-3 md:hidden">
+        <span className="h-px w-8 bg-[#18324A]/20" />
+
+        <span className="font-mono text-[7px] tracking-[0.2em] text-[#5F7890]">
+          SCROLL
+        </span>
+
+        <span className="h-px w-8 bg-[#18324A]/20" />
+      </div>
     </div>
   );
 }
@@ -567,13 +651,34 @@ export default function Services() {
 
   const [modelReady, setModelReady] = useState(false);
 
-  const isMobile =
-    typeof window !== "undefined" &&
-    window.innerWidth < 768;
+  /*
+   * Use a reactive media-query style check instead of
+   * reading window.innerWidth once during render.
+   */
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+
+    const update = () => {
+      setIsMobile(media.matches);
+    };
+
+    update();
+
+    media.addEventListener("change", update);
+
+    return () => {
+      media.removeEventListener("change", update);
+    };
+  }, []);
 
   /*
-   * Keep the model slightly to the right on desktop so
-   * the typography and building don't fight each other.
+   * Desktop:
+   * model sits slightly right to make room for copy.
+   *
+   * Mobile:
+   * center it.
    */
   const modelOffsetX = isMobile ? 0 : 2.2;
 
@@ -592,14 +697,10 @@ export default function Services() {
 
   useGSAP(
     () => {
-      if (
-        !sectionRef.current ||
-        !modelReady ||
-        !cameraRef.current ||
-        !partsRef.current.length
-      ) {
-        return;
-      }
+      if (!sectionRef.current) return;
+      if (!modelReady) return;
+      if (!cameraRef.current) return;
+      if (!partsRef.current.length) return;
 
       const section = sectionRef.current;
       const camera = cameraRef.current;
@@ -647,9 +748,10 @@ export default function Services() {
       >();
 
       allMaterials.forEach((material) => {
-        const colorMaterial = material as THREE.Material & {
-          color?: THREE.Color;
-        };
+        const colorMaterial =
+          material as THREE.Material & {
+            color?: THREE.Color;
+          };
 
         if (
           colorMaterial.color instanceof THREE.Color
@@ -799,11 +901,6 @@ export default function Services() {
         position: number | string,
         duration = 1
       ) => {
-        /*
-         * Because the entire GLB is normalized through its
-         * parent scene scale, convert our nice world-space
-         * animation distance back into local model space.
-         */
         timeline.to(
           part.mesh.position,
           {
@@ -829,12 +926,16 @@ export default function Services() {
       const moveCategory = (
         timeline: gsap.core.Timeline,
         category: PartCategory,
-        getOffset: (part: BuildingPart) => THREE.Vector3,
+        getOffset: (
+          part: BuildingPart
+        ) => THREE.Vector3,
         position: number | string,
         duration = 1
       ) => {
         parts
-          .filter((part) => part.category === category)
+          .filter(
+            (part) => part.category === category
+          )
           .forEach((part) => {
             movePart(
               timeline,
@@ -853,7 +954,9 @@ export default function Services() {
         duration = 0.9
       ) => {
         parts
-          .filter((part) => part.category === category)
+          .filter(
+            (part) => part.category === category
+          )
           .forEach((part) => {
             timeline.to(
               part.mesh.position,
@@ -990,10 +1093,6 @@ export default function Services() {
         }
       );
 
-      /*
-       * Make sure every mesh begins at its actual imported
-       * position.
-       */
       parts.forEach((part) => {
         part.mesh.position.copy(
           part.homePosition
@@ -1004,17 +1103,28 @@ export default function Services() {
         );
       });
 
+      /*
+       * Reset camera state explicitly.
+       * This makes re-entry / refresh much more reliable.
+       */
+      camera.position.set(
+        15,
+        10,
+        22
+      );
+
+      cameraTargetRef.current.set(
+        modelOffsetX,
+        3.5,
+        0
+      );
+
+      camera.lookAt(
+        cameraTargetRef.current
+      );
+
       /* =====================================================
          MASTER TIMELINE
-
-         0       INTRO
-         1.5     FOUNDATION
-         3.3     STRUCTURE
-         5.1     FLOORS
-         6.9     ENVELOPE
-         8.7     INTERIOR
-         10.4    ROOF
-         12.0    COMPLETE SYSTEM
       ===================================================== */
 
       const tl = gsap.timeline({
@@ -1026,6 +1136,7 @@ export default function Services() {
           pin: true,
           anticipatePin: 1,
           invalidateOnRefresh: true,
+          fastScrollEnd: false,
         },
       });
 
@@ -1065,8 +1176,6 @@ export default function Services() {
         0
       );
 
-      /* INTRO LEAVES */
-
       tl.to(
         introRef.current,
         {
@@ -1095,13 +1204,15 @@ export default function Services() {
         1.75
       );
 
-      /*
-       * Foundation physically drops away from the building.
-       */
       moveCategory(
         tl,
         "foundation",
-        () => new THREE.Vector3(0, -1.5, 0),
+        () =>
+          new THREE.Vector3(
+            0,
+            -1.5,
+            0
+          ),
         1.7,
         1.1
       );
@@ -1120,7 +1231,7 @@ export default function Services() {
         ),
         1.55,
         1.25,
-        39
+        isMobile ? 42 : 39
       );
 
       tl.to(
@@ -1202,9 +1313,6 @@ export default function Services() {
         3.2
       );
 
-      /*
-       * Pull structural members slightly apart.
-       */
       moveCategory(
         tl,
         "structure",
@@ -1239,7 +1347,7 @@ export default function Services() {
         ),
         3.1,
         1.3,
-        37
+        isMobile ? 40 : 37
       );
 
       tl.to(
@@ -1321,20 +1429,16 @@ export default function Services() {
         4.85
       );
 
-      /*
-       * Floors separate vertically.
-
-       * top floor → upward
-       * middle floor → slight upward
-       * platform → slight downward
-       */
       moveCategory(
         tl,
         "floor",
         (part) => {
-          const name = part.name.toLowerCase();
+          const name =
+            part.name.toLowerCase();
 
-          if (name.includes("top_loor")) {
+          if (
+            name.includes("top_loor")
+          ) {
             return new THREE.Vector3(
               0,
               1.35,
@@ -1342,7 +1446,9 @@ export default function Services() {
             );
           }
 
-          if (name.includes("med_floor")) {
+          if (
+            name.includes("med_floor")
+          ) {
             return new THREE.Vector3(
               0,
               0.25,
@@ -1350,7 +1456,9 @@ export default function Services() {
             );
           }
 
-          if (name.includes("plat")) {
+          if (
+            name.includes("plat")
+          ) {
             return new THREE.Vector3(
               0,
               -0.7,
@@ -1382,7 +1490,7 @@ export default function Services() {
         ),
         4.7,
         1.35,
-        36
+        isMobile ? 39 : 36
       );
 
       tl.to(
@@ -1444,10 +1552,6 @@ export default function Services() {
         6.05
       );
 
-      /*
-       * Envelope starts slightly outside the building,
-       * then assembles into place.
-       */
       fadeCategory(
         tl,
         "walls",
@@ -1486,11 +1590,6 @@ export default function Services() {
         0
       );
 
-      /*
-       * Immediately animate them back home.
-       * This creates the "building assembles itself"
-       * effect.
-       */
       resetCategoryPosition(
         tl,
         "walls",
@@ -1544,7 +1643,7 @@ export default function Services() {
         ),
         6.1,
         1.35,
-        35
+        isMobile ? 38 : 35
       );
 
       tl.to(
@@ -1571,9 +1670,6 @@ export default function Services() {
         7.55
       );
 
-      /*
-       * Exterior disappears.
-       */
       fadeCategory(
         tl,
         "walls",
@@ -1616,9 +1712,6 @@ export default function Services() {
         7.55
       );
 
-      /*
-       * First approach the front opening.
-       */
       moveCamera(
         tl,
         new THREE.Vector3(
@@ -1633,12 +1726,9 @@ export default function Services() {
         ),
         7.55,
         1.15,
-        31
+        isMobile ? 34 : 31
       );
 
-      /*
-       * Then move through the building.
-       */
       moveCamera(
         tl,
         new THREE.Vector3(
@@ -1653,12 +1743,9 @@ export default function Services() {
         ),
         8.45,
         1.2,
-        30
+        isMobile ? 33 : 30
       );
 
-      /*
-       * Interior becomes the focus.
-       */
       tl.to(
         interiorRef.current,
         {
@@ -1670,9 +1757,6 @@ export default function Services() {
         8.8
       );
 
-      /*
-       * Subtle rotation while inside.
-       */
       tl.to(
         modelRoot.rotation,
         {
@@ -1738,9 +1822,6 @@ export default function Services() {
         9.9
       );
 
-      /*
-       * Roof lifts away from the building.
-       */
       moveCategory(
         tl,
         "roof",
@@ -1754,9 +1835,6 @@ export default function Services() {
         1.1
       );
 
-      /*
-       * Camera rises with it.
-       */
       moveCamera(
         tl,
         new THREE.Vector3(
@@ -1771,7 +1849,7 @@ export default function Services() {
         ),
         9.7,
         1.35,
-        35
+        isMobile ? 38 : 35
       );
 
       tl.to(
@@ -1799,42 +1877,27 @@ export default function Services() {
         11.05
       );
 
-      /*
-       * Roof comes back.
-       */
       resetCategoryPosition(
         tl,
         "roof",
         11.05
       );
 
-      /*
-       * Everything becomes visible again.
-       */
       restoreAllOpacity(
         tl,
         11.15
       );
 
-      /*
-       * Restore original colors.
-       */
       restoreColors(
         tl,
         11.15
       );
 
-      /*
-       * Restore all exploded pieces.
-       */
       resetAllPositions(
         tl,
         11.2
       );
 
-      /*
-       * Building returns to its neutral orientation.
-       */
       tl.to(
         modelRoot.rotation,
         {
@@ -1845,9 +1908,6 @@ export default function Services() {
         11.25
       );
 
-      /*
-       * Camera pulls back.
-       */
       moveCamera(
         tl,
         new THREE.Vector3(
@@ -1862,12 +1922,9 @@ export default function Services() {
         ),
         11.15,
         1.6,
-        37
+        isMobile ? 40 : 37
       );
 
-      /*
-       * Final statement.
-       */
       tl.to(
         finalRef.current,
         {
@@ -1895,10 +1952,13 @@ export default function Services() {
       }
 
       /*
-       * Refresh after model dimensions are known.
+       * Refresh only after the browser has had time to lay out
+       * the pinned section and Canvas.
        */
       requestAnimationFrame(() => {
-        ScrollTrigger.refresh();
+        requestAnimationFrame(() => {
+          ScrollTrigger.refresh();
+        });
       });
 
       return () => {
@@ -1908,7 +1968,11 @@ export default function Services() {
     },
     {
       scope: sectionRef,
-      dependencies: [modelReady],
+      dependencies: [
+        modelReady,
+        isMobile,
+        modelOffsetX,
+      ],
       revertOnUpdate: true,
     }
   );
@@ -1925,18 +1989,15 @@ export default function Services() {
       <div className="absolute inset-0 z-[1]">
         <Canvas
           camera={{
-            position: isMobile
-              ? [0, 5.5, -18]
-              : [14, 8, -20],
-            fov: 37,
-            near: 0.05,
+            position: [15, 10, 22],
+            fov: 38,
+            near: 0.01,
             far: 1000,
           }}
           dpr={[1, 2]}
           gl={{
             antialias: true,
             alpha: true,
-            powerPreference: "high-performance",
           }}
         >
           <CameraRig
@@ -2070,7 +2131,7 @@ export default function Services() {
           "OPENINGS",
           "COORDINATION",
         ]}
-        side="right"
+        side="rightUp"
       />
 
       {/* =====================================================
