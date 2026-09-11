@@ -1,10 +1,35 @@
 import type { ReactElement } from "react";
 import { lazy, Suspense } from "react";
+import { AnimatePresence } from "framer-motion";
+
 import Hero from "./components/Hero";
 import About from "./components/About";
-// import Services from "./components/Services"
+
+import {
+  useConstructionPreloader,
+  PreloaderScreen,
+} from "./components/Preloader";
+
+import SmoothScrollProvider from "./components/SmoothScrollProvider";
+
+import "lenis/dist/lenis.css";
 
 const Services = lazy(() => import("./components/Services"));
+
+/*
+ * Start downloading the Services JavaScript chunk early.
+ *
+ * React will still render it through <Suspense> normally,
+ * but the browser can begin fetching the chunk while
+ * the Hero/About experience is loading.
+ */
+void import("./components/Services");
+
+const CRITICAL_ASSETS = [
+  "/house.webp",
+  "/Construction-720.mp4",
+  "/modern_house.glb",
+];
 
 function ServicesLoader() {
   return (
@@ -33,15 +58,29 @@ function ServicesLoader() {
 }
 
 export default function App(): ReactElement {
-  return (
-    <div className="relative w-full bg-[#F5F3EE] text-slate-100 font-sans">
-      <Hero />
-      <About />
+  const { isLoaded, progress } =
+    useConstructionPreloader(CRITICAL_ASSETS);
 
-      <Suspense fallback={<ServicesLoader />}>
-        <Services />
-      </Suspense>
-      
-    </div>
+  return (
+    <SmoothScrollProvider>
+      <div className="relative w-full bg-[#F5F3EE] font-sans text-slate-100">
+        <AnimatePresence mode="wait">
+          {!isLoaded && (
+            <PreloaderScreen
+              key="loader"
+              progress={progress}
+            />
+          )}
+        </AnimatePresence>
+
+        <Hero />
+
+        <About />
+
+        <Suspense fallback={<ServicesLoader />}>
+          <Services />
+        </Suspense>
+      </div>
+    </SmoothScrollProvider>
   );
 }
